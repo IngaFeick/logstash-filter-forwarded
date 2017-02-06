@@ -107,5 +107,10 @@ describe LogStash::Filters::Forwarded do
 #[2017-02-06T18:02:45,832][WARN ][logstash.filters.forwarded] Invalid IP network, skipping {:adress=>"10/8"}
 #[2017-02-06T18:02:45,838][WARN ][logstash.filters.forwarded] Invalid IP network, skipping {:adress=>"192.168/16"}
 
+# TODO add edge cases for the following
+# Private IP Addresses have the following ranges:
+#10.0.0.0    - 10.255.255.255
+#172.16.0.0  - 172.31.255.255
+#192.168.0.0 - 192.168.255.255 
 
 end

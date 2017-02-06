@@ -19,7 +19,12 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   config :source, :validate => :string, :required => true
 
   # list of ip patterns that private ips start with. 
-  config :private_ip_prefixes, :validate => :array, :required => false, :default => ["10/8", "192.168/16" ,"172.16.0.0/12"]
+  config :private_ip_prefixes, :validate => :array, :required => false, :default => ["10.0.0.0/8", "192.168.0.0/16" ,"172.16.0.0/12"]
+
+  # Private IP Addresses have the following ranges:
+  # 10.0.0.0    - 10.255.255.255
+  # 172.16.0.0  - 172.31.255.255
+  # 192.168.0.0 - 192.168.255.255 
   
   public
   def register    
@@ -27,7 +32,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       begin
         IPAddr.new(adress)
       rescue ArgumentError => e
-        @logger.warn("Invalid IP network, skipping", :adress => adress)
+        @logger.warn("Invalid IP network, skipping", :adress => adress, :exception => e)
         nil
        end
     end
@@ -69,7 +74,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
     if ip_list.nil?
       proxies = [] 
     else 
-      proxies = ip_list- [client_ip]
+      proxies = ip_list - [client_ip]
     end
 
     return client_ip, proxies
@@ -77,9 +82,12 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   end # def analyse
 
   def get_client_ip(ip_array)
+    @logger.debug("Checking ip list: #{ip_array}")
+        
     ip_array.each do | ip |
       ip = ip.strip
       if !is_private(ip)
+        @logger.debug("IP #{ip} is public, loop ends.")
         return ip
       end # if
     end # each
@@ -91,9 +99,11 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       ipo = IPAddr.new(ip)
       @private_ips.each do | private_ip |
         if private_ip.include?(ipo)
+          @logger.debug("IP #{ip} is in private ip range #{private_ip}")
           return true
         end
       end # each
+      @logger.debug("IP #{ip} did not match any private ip ranges")
       false
     rescue => e
       @logger.error("Couldnt check if ip is private.", :input_data => ip, :exception => e)
