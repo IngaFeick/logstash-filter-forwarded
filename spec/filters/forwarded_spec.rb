@@ -74,7 +74,7 @@ describe LogStash::Filters::Forwarded do
         expect(event.get("forwarded_client_ip")).to eq(nil)
         expect(event.get("forwarded_proxy_list")).to eq(["10.1.2.162","10.1.3.255"])
       end # it
-    end # contex
+    end # context
 
     context "empty message" do
 
@@ -83,7 +83,7 @@ describe LogStash::Filters::Forwarded do
         expect(event.get("forwarded_client_ip")).to eq(nil)
         expect(event.get("forwarded_proxy_list")).to eq(nil)
       end # it
-    end # contex
+    end # context
 
     context "multiple ips in wrong order" do
 
@@ -92,7 +92,21 @@ describe LogStash::Filters::Forwarded do
         expect(event.get("forwarded_client_ip")).to eq("82.132.186.219")
         expect(event.get("forwarded_proxy_list")).to eq(["10.144.80.56"])
       end # it
-    end # contex
+    end # context
+
+    context "edge case tests" do
+
+    # Private IP Addresses have the following ranges:
+    #10.0.0.0    - 10.255.255.255
+    #172.16.0.0  - 172.31.255.255
+    #192.168.0.0 - 192.168.255.255 
+
+      let(:event) { LogStash::Event.new(:message => "192.168.255.255, 192.169.0.13") }
+      it "should take the client ip from the right end of the list" do
+        expect(event.get("forwarded_client_ip")).to eq("192.169.0.13")
+        expect(event.get("forwarded_proxy_list")).to eq(["192.168.255.255"])
+      end # it
+    end # context
 
     context "ipv6 client ip" do
 
@@ -101,16 +115,10 @@ describe LogStash::Filters::Forwarded do
         expect(event.get("forwarded_client_ip")).to eq("2405:204:828e:fa5a::e64:38a5")
         expect(event.get("forwarded_proxy_list")).to eq(["64.233.173.148"])
       end # it
-    end # contex
+    end # context
 
-# TODO add more use cases for ipv6 and for the bug report from the github ticket
-#[2017-02-06T18:02:45,832][WARN ][logstash.filters.forwarded] Invalid IP network, skipping {:adress=>"10/8"}
-#[2017-02-06T18:02:45,838][WARN ][logstash.filters.forwarded] Invalid IP network, skipping {:adress=>"192.168/16"}
-
+# TODO add more use cases for ipv6
 # TODO add edge cases for the following
-# Private IP Addresses have the following ranges:
-#10.0.0.0    - 10.255.255.255
-#172.16.0.0  - 172.31.255.255
-#192.168.0.0 - 192.168.255.255 
+
 
 end
