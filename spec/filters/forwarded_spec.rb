@@ -94,7 +94,7 @@ describe LogStash::Filters::Forwarded do
       end # it
     end # context
 
-    context "edge case tests" do
+    context "edge case test for 192.x range" do
 
     # Private IP Addresses have the following ranges:
     #10.0.0.0    - 10.255.255.255
@@ -106,6 +106,17 @@ describe LogStash::Filters::Forwarded do
         expect(event.get("forwarded_client_ip")).to eq("192.169.0.13")
         expect(event.get("forwarded_proxy_list")).to eq(["192.168.255.255"])
       end # it
+
+    end # context
+
+    context "edge case test for 172.x range" do
+
+      let(:event) { LogStash::Event.new(:message => "172.10.0.0,172.16.0.0") }
+      it "should take the client ip from the right end of the list" do
+        expect(event.get("forwarded_client_ip")).to eq("172.10.0.0")
+        expect(event.get("forwarded_proxy_list")).to eq(["172.16.0.0"])
+      end # it
+
     end # context
 
     context "ipv6 client ip" do
