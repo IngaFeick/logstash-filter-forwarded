@@ -13,6 +13,11 @@ describe LogStash::Filters::Forwarded do
       plugin.filter(event)
     end
     
+    # Private IP Addresses have the following ranges:
+    #10.0.0.0    - 10.255.255.255
+    #172.16.0.0  - 172.31.255.255
+    #192.168.0.0 - 192.168.255.255 
+
     context "multiple client ips" do
 
       let(:event) { LogStash::Event.new(:message => "123.45.67.89,61.160.232.222") }
@@ -96,11 +101,6 @@ describe LogStash::Filters::Forwarded do
 
     context "edge case test for 192.x range" do
 
-    # Private IP Addresses have the following ranges:
-    #10.0.0.0    - 10.255.255.255
-    #172.16.0.0  - 172.31.255.255
-    #192.168.0.0 - 192.168.255.255 
-
       let(:event) { LogStash::Event.new(:message => "192.168.255.255, 192.169.0.13") }
       it "should take the client ip from the right end of the list" do
         expect(event.get("forwarded_client_ip")).to eq("192.169.0.13")
@@ -125,6 +125,15 @@ describe LogStash::Filters::Forwarded do
       it "should ignore the 'unknown' ip" do
         expect(event.get("forwarded_client_ip")).to eq("207.248.75.2")
         expect(event.get("forwarded_proxy_list")).to eq([])
+      end # it
+    end # context
+
+    context "invalid ips in string pt. 2" do
+
+      let(:event) { LogStash::Event.new(:message => "10.122.18.79, unknown, 200.152.43.203") }
+      it "should ignore the 'unknown' ip" do
+        expect(event.get("forwarded_client_ip")).to eq("200.152.43.203")
+        expect(event.get("forwarded_proxy_list")).to eq(["10.122.18.79"])
       end # it
     end # context
 

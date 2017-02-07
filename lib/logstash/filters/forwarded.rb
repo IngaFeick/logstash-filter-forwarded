@@ -77,9 +77,9 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
     if ip.is_a? Array
       ip_list = ip
     else
-      ip_list = ip.split(",")  
+      ip_list = ip.downcase.split(",")  
     end
-    ip_list = ip_list.reject { |x| ["-", "unknown"].include? x }.map { |x| x.strip }
+    ip_list = ip_list.map { |x| x.strip }.reject { |x| ["-", "unknown"].include? x }
 
     client_ip = get_client_ip(ip_list)
 
