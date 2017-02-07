@@ -72,7 +72,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
     if ip.is_a? Array
       ip_list = ip
     else
-      ip_list = ip.split(",")      
+      ip_list = ip.split(",").map { |x| x.strip }  
     end
 
     client_ip = get_client_ip(ip_list)
@@ -91,7 +91,6 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
     @logger.debug("Checking ip list: #{ip_array}")
         
     ip_array.each do | ip |
-      ip = ip.strip
       if !is_private(ip)
         @logger.debug("IP #{ip} is public, loop ends.")
         return ip
