@@ -51,6 +51,9 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
 
     begin
       forwarded = event.get(@source)
+
+      return unless forwarded and !forwarded.empty?
+
       client_ip, proxies = analyse(forwarded)
       if client_ip
         event.set(@target_client_ip, client_ip)
