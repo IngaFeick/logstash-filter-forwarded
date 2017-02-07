@@ -8,10 +8,9 @@ Gem::Specification.new do |s|
   s.authors         = ["Inga Feick"]
   s.email           = 'inga.feick@trivago.com'
   s.require_paths = ["lib"]
-  s.platform      = "java"
 
   # Files
-  s.files = Dir['lib/**/*','spec/**/*','vendor/**/*','*.gemspec','*.md','CONTRIBUTORS','Gemfile','LICENSE','NOTICE.TXT', 'maxmind-db-NOTICE.txt']
+  s.files = Dir['lib/**/*','spec/**/*','vendor/**/*','*.gemspec','*.md','CONTRIBUTORS','Gemfile','LICENSE','NOTICE.TXT']
 
   # Tests
   s.test_files = s.files.grep(%r{^(test|spec|features)/})

@@ -1,10 +1,11 @@
 # Logstash Plugin
 
-[![Travis Build Status](https://travis-ci.org/logstash-plugins/logstash-filter-geoip.svg)](https://travis-ci.org/logstash-plugins/logstash-filter-geoip)
 
 This is a plugin for [Logstash](https://github.com/elastic/logstash).
 
 It is fully free and fully open source. The license is Apache 2.0, meaning you are pretty much free to use it however you want in whatever way.
+
+The forwarded plugin allows you to dissect a list of ip addresses from the x-forwarded-for header and to identify the client ip in that list, regardless of whether or not the header complies to the x-forwarded-for format. Unless specified otherwise, it will add a field "forwarded_client_ip" to your event, along with a "forwarded_proxy_list" containing all the other ips in the x-forwarded-for string.
 
 ## Documentation
 
@@ -45,11 +46,6 @@ bundle install
 bundle exec rake vendor
 ```
 
-- Install jar dependencies
-
-```
-bundle exec rake install_jars
-```
 
 - Run tests
 

@@ -1,116 +1,225 @@
 # encoding: utf-8
+
 require "logstash/devutils/rspec/spec_helper"
-require "logstash/filters/forwarded"
+require "logstash/filters/json"
+require "logstash/timestamp"
 
+describe LogStash::Filters::Json do
 
-describe LogStash::Filters::Forwarded do
+  describe "parse message into the event" do
+    config <<-CONFIG
+      filter {
+        json {
+          # Parse message as JSON
+          source => "message"
+        }
+      }
+    CONFIG
 
-
-    let(:plugin) { LogStash::Filters::Forwarded.new("source" => "message") }
-    
-    before do
-      plugin.register
-      plugin.filter(event)
+    sample '{ "hello": "world", "list": [ 1, 2, 3 ], "hash": { "k": "v" } }' do
+      insist { subject.get("hello") } == "world"
+      insist { subject.get("list" ).to_a } == [1,2,3] # to_a for JRuby + JrJacksom which creates Java ArrayList
+      insist { subject.get("hash") } == { "k" => "v" }
     end
-    
-    context "multiple client ips" do
+  end
 
-      let(:event) { LogStash::Event.new(:message => "123.45.67.89,61.160.232.222") }
-      it "should take the first client ip" do
-        expect(event.get("client_ip")).to eq("123.45.67.89")
-        expect(event.get("proxies")).to eq(["61.160.232.222"])
-      end # it
-    end # context
+  describe "parse message into a target field" do
+    config <<-CONFIG
+      filter {
+        json {
+          # Parse message as JSON, store the results in the 'data' field'
+          source => "message"
+          target => "data"
+        }
+      }
+    CONFIG
 
-    context "proper x-forwarded-for" do
+    sample '{ "hello": "world", "list": [ 1, 2, 3 ], "hash": { "k": "v" } }' do
+      insist { subject.get("data")["hello"] } == "world"
+      insist { subject.get("data")["list" ].to_a } == [1,2,3] # to_a for JRuby + JrJacksom which creates Java ArrayList
+      insist { subject.get("data")["hash"] } == { "k" => "v" }
+    end
+  end
 
-      let(:event) { LogStash::Event.new(:message => "84.30.67.207, 10.1.2.162") }
-      it "should take the first public ip" do
-        expect(event.get("client_ip")).to eq("84.30.67.207")
-        expect(event.get("proxies")).to eq(["10.1.2.162"])
-      end # it
-    end # context
+  describe "tag invalid json" do
+    config <<-CONFIG
+      filter {
+        json {
+          # Parse message as JSON, store the results in the 'data' field'
+          source => "message"
+          target => "data"
+          tag_on_failure => ["_jsonparsefailure","_custom_failure_tag"]
+        }
+      }
+    CONFIG
 
-    context "proper x-forwarded-for with multiple proxies" do
+    sample "invalid json" do
+      insist { subject.get("tags") }.include?("_jsonparsefailure")
+      insist { subject.get("tags") }.include?("_custom_failure_tag")
+    end
+  end
 
-      let(:event) { LogStash::Event.new(:message => "94.254.183.48, 10.1.2.161, 10.1.2.162") }
-      it "should take the first ip" do
-        expect(event.get("client_ip")).to eq("94.254.183.48")
-        expect(event.get("proxies")).to eq(["10.1.2.161","10.1.2.162"])
-      end # it
-    end # context
+  describe "fixing @timestamp (#pull 733)" do
+    config <<-CONFIG
+      filter {
+        json {
+          source => "message"
+        }
+      }
+    CONFIG
 
-    context "proper x-forwarded-for with multiple proxies, no whitespace" do
+    sample "{ \"@timestamp\": \"2013-10-19T00:14:32.996Z\" }" do
+      insist { subject.get("@timestamp") }.is_a?(LogStash::Timestamp)
+      insist { LogStash::Json.dump(subject.get("@timestamp")) } == "\"2013-10-19T00:14:32.996Z\""
+    end
+  end
 
-      let(:event) { LogStash::Event.new(:message => "51.174.213.194,10.1.2.100,10.1.2.83") }
-      it "should take the first client ip" do
-        expect(event.get("client_ip")).to eq("51.174.213.194")
-        expect(event.get("proxies")).to eq(["10.1.2.100","10.1.2.83"])
-      end # it
-    end # context
+  describe "source == target" do
+    config <<-CONFIG
+      filter {
+        json {
+          source => "example"
+          target => "example"
+        }
+      }
+    CONFIG
 
-    context "single client ip" do
+    sample({ "example" => "{ \"hello\": \"world\" }" }) do
+      insist { subject.get("example") }.is_a?(Hash)
+      insist { subject.get("example")["hello"] } == "world"
+    end
+  end
 
-      let(:event) { LogStash::Event.new(:message => "185.22.141.112") }
-      it "should set the client ip and leave the proxy list empty" do
-        expect(event.get("client_ip")).to eq("185.22.141.112")
-        expect(event.get("proxies")).to eq([])
-      end # it
-    end # context
+  describe "parse JSON array into target field" do
+    config <<-CONFIG
+      filter {
+        json {
+          # Parse message as JSON, store the results in the 'data' field'
+          source => "message"
+          target => "data"
+        }
+      }
+    CONFIG
 
-    context "single proxy ip" do
+    sample '[ { "k": "v" }, { "l": [1, 2, 3] } ]' do
+      insist { subject.get("data")[0]["k"] } == "v"
+      insist { subject.get("data")[1]["l"].to_a } == [1,2,3] # to_a for JRuby + JrJacksom which creates Java ArrayList
+    end
+  end
 
-      let(:event) { LogStash::Event.new(:message => "10.1.2.162") }
-      it "should set the proxy list and leave the client ip empty" do
-        expect(event.get("client_ip")).to eq(nil)
-        expect(event.get("proxies")).to eq(["10.1.2.162"])
-      end # it
-    end # context
+  context "using message field source" do
 
-    context "multiple proxy ips" do
+    subject(:filter) {  LogStash::Filters::Json.new(config)  }
 
-      let(:event) { LogStash::Event.new(:message => "10.1.2.162, 10.1.3.255") }
-      it "should set the proxy list and leave the client ip empty" do
-        expect(event.get("client_ip")).to eq(nil)
-        expect(event.get("proxies")).to eq(["10.1.2.162","10.1.3.255"])
-      end # it
-    end # contex
+    let(:config) { {"source" => "message"} }
+    let(:event) { LogStash::Event.new("message" => message) }
 
-    context "empty message" do
+    before(:each) do
+      filter.register
+      filter.filter(event)
+    end
 
-      let(:event) { LogStash::Event.new(:message => "") }
-      it "should return empty or nil values" do
-        expect(event.get("client_ip")).to eq(nil)
-        expect(event.get("proxies")).to eq(nil)
-      end # it
-    end # contex
+    context "when json could not be parsed" do
+      let(:message) { "random_message" }
 
-    context "multiple ips in wrong order" do
+      it "add the failure tag" do
+        expect(event).to include("tags")
+      end
 
-      let(:event) { LogStash::Event.new(:message => "10.144.80.56, 82.132.186.219") }
-      it "should take the client ip from the right end of the list" do
-        expect(event.get("client_ip")).to eq("82.132.186.219")
-        expect(event.get("proxies")).to eq(["10.144.80.56"])
-      end # it
-    end # contex
+      it "uses an array to store the tags" do
+        expect(event.get('tags')).to be_a(Array)
+      end
 
-    context "ipv6 client ip" do
+      it "add a json parser failure tag" do
+        expect(event.get('tags')).to include("_jsonparsefailure")
+      end
 
-      let(:event) { LogStash::Event.new(:message => "2405:204:828e:fa5a::e64:38a5, 64.233.173.148") }
-      it "should take the client ip from the right end of the list" do
-        expect(event.get("client_ip")).to eq("2405:204:828e:fa5a::e64:38a5")
-        expect(event.get("proxies")).to eq(["64.233.173.148"])
-      end # it
-    end # contex
+      context "there are two different errors added" do
 
-# TODO add more use cases for ipv6 and for the bug report from the github ticket
-#[2017-02-06T18:02:45,832][WARN ][logstash.filters.forwarded] Invalid IP network, skipping {:adress=>"10/8"}
-#[2017-02-06T18:02:45,838][WARN ][logstash.filters.forwarded] Invalid IP network, skipping {:adress=>"192.168/16"}
+        let(:event)  { LogStash::Event.new("message" => message, "tags" => ["_anotherkinfoffailure"] ) }
 
-# TODO add edge cases for the following
-# Private IP Addresses have the following ranges:
-#10.0.0.0    - 10.255.255.255
-#172.16.0.0  - 172.31.255.255
-#192.168.0.0 - 192.168.255.255 
+        it "pile the different error messages" do
+          expect(event.get('tags')).to include("_jsonparsefailure")
+        end
 
+        it "keep the former error messages on the list" do
+          expect(event.get('tags')).to include("_anotherkinfoffailure")
+        end
+      end
+    end
+
+    context "the JSON is an ArrayList" do
+      let(:message) { "[1, 2, 3]" }
+
+      it "adds the failure tag" do
+        expect(event.get('tags')).to include("_jsonparsefailure")
+      end
+    end
+
+    context "json contains valid timestamp" do
+      let(:message) { "{\"foo\":\"bar\", \"@timestamp\":\"2015-12-02T17:40:00.666Z\"}" }
+
+      it "should set json timestamp" do
+        expect(event.timestamp).to be_a(LogStash::Timestamp)
+        expect(event.timestamp.to_s).to eq("2015-12-02T17:40:00.666Z")
+      end
+    end
+
+    context "json contains invalid timestamp" do
+      let(:message) { "{\"foo\":\"bar\", \"@timestamp\":\"foobar\"}" }
+
+      it "should set timestamp to current time" do
+        expect(event.timestamp).to be_a(LogStash::Timestamp)
+        expect(event.get("tags")).to include(LogStash::Event::TIMESTAMP_FAILURE_TAG)
+        expect(event.get(LogStash::Event::TIMESTAMP_FAILURE_FIELD)).to eq("foobar")
+      end
+    end
+  end
+
+  describe "parse mixture of json an non-json content (skip_on_invalid_json)" do
+    subject(:filter) {  LogStash::Filters::Json.new(config)  }
+
+    let(:config) { {"source" => "message", "remove_field" => ["message"], "skip_on_invalid_json" => skip_on_invalid_json} }
+    let(:event) { LogStash::Event.new("message" => message) }
+
+    before(:each) do
+      allow(filter.logger).to receive(:warn)
+      filter.register
+      filter.filter(event)
+    end
+
+    let(:message) { "this is not a json message" }
+
+    context "with `skip_on_invalid_json` set to false" do
+      let(:skip_on_invalid_json) { false }
+
+      it "sends a warning to the logger" do
+        expect(filter.logger).to have_received(:warn).with("Error parsing json", anything())
+      end
+
+      it "keeps the source field" do
+        expect(event.get("message")).to eq message
+      end
+
+      it "adds a parse-error tag" do
+        expect(event.get("tags")).to eq ["_jsonparsefailure"]
+      end
+    end
+
+    context "with `skip_on_invalid_json` set to true" do
+      let(:skip_on_invalid_json) { true }
+
+      it "sends no warning" do
+        expect(filter.logger).to_not have_received(:warn)
+      end
+
+      it "keeps the source field" do
+        expect(event.get("message")).to eq message
+      end
+
+      it "does not add a parse-error tag" do
+        expect(event.get("tags")).to be_nil
+      end
+    end
+  end
 end
