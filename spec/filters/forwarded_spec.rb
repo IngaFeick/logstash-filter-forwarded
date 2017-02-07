@@ -119,6 +119,15 @@ describe LogStash::Filters::Forwarded do
 
     end # context
 
+    context "invalid ips in string" do
+
+      let(:event) { LogStash::Event.new(:message => "unknown, 207.248.75.2") }
+      it "should ignore the 'unknown' ip" do
+        expect(event.get("forwarded_client_ip")).to eq("207.248.75.2")
+        expect(event.get("forwarded_proxy_list")).to eq([])
+      end # it
+    end # context
+
     context "ipv6 client ip" do
 
       let(:event) { LogStash::Event.new(:message => "2405:204:828e:fa5a::e64:38a5, 64.233.173.148") }
@@ -129,7 +138,5 @@ describe LogStash::Filters::Forwarded do
     end # context
 
 # TODO add more use cases for ipv6
-# TODO add edge cases for the following
-
 
 end

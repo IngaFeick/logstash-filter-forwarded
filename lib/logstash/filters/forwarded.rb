@@ -38,8 +38,8 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       begin
         IPAddr.new(adress)
       rescue ArgumentError => e
-        @logger.warn("Invalid IP network, skipping", :adress => adress, :exception => e)
-        nil
+        @logger.error("Register: invalid IP network, skipping", :adress => adress, :exception => e)
+        raise e
        end
     end
     @private_ips.compact!
@@ -64,9 +64,8 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       filter_matched(event)     
       
     rescue Exception => e
-      @logger.error("Unknown error while looking up GeoIP data", :exception => e, :field => @source, :event => event)
-      # Dont' swallow this, bubble up for unknown issue
-      raise e
+      @logger.debug("Unknown error while looking up GeoIP data", :exception => e, :field => @source, :event => event)
+      # raise e
     end # begin
   end # def filter
 
@@ -78,8 +77,9 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
     if ip.is_a? Array
       ip_list = ip
     else
-      ip_list = ip.split(",").map { |x| x.strip }  
+      ip_list = ip.split(",")  
     end
+    ip_list = ip_list.reject { |x| ["-", "unknown"].include? x }.map { |x| x.strip }
 
     client_ip = get_client_ip(ip_list)
 
@@ -94,11 +94,8 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   end # def analyse
 
   def get_client_ip(ip_array)
-    @logger.debug("Checking ip list: #{ip_array}")
-        
     ip_array.each do | ip |
       if !is_private(ip)
-        @logger.debug("IP #{ip} is public, loop ends.")
         return ip
       end # if
     end # each
@@ -110,14 +107,12 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       ipo = IPAddr.new(ip)
       @private_ips.each do | private_ip |
         if private_ip.include?(ipo)
-          @logger.debug("IP #{ip} is in private ip range #{private_ip}")
           return true
         end
       end # each
-      @logger.debug("IP #{ip} did not match any private ip ranges")
       false
     rescue => e
-      @logger.error("Couldnt check if ip is private.", :input_data => ip, :exception => e)
+      @logger.debug("Couldnt check if ip is private.", :input_data => ip, :exception => e)
     end # begin
   end # is_private
 
