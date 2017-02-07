@@ -8,8 +8,8 @@ java_import "java.net.InetAddress"
 
 # The forwarded filter extracts the client ip from a list of ip adresses. The client ip might be at any position in the list, since not every x-forwarded-for header comes in the correct ordering.
 # It adds two new fields to the event:
-#  - client_ip : string
-#  - proxies : string[]
+#  - forwarded_client_ip : string
+#  - forwarded_proxy_list : string[]
 
 class LogStash::Filters::Forwarded < LogStash::Filters::Base
   config_name "forwarded"
@@ -25,6 +25,12 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   # 10.0.0.0    - 10.255.255.255
   # 172.16.0.0  - 172.31.255.255
   # 192.168.0.0 - 192.168.255.255 
+
+  # The name of the new field containing client ip (optional)
+  config :target_client_ip, :validate => :string, :required => false, :default => "forwarded_client_ip"
+
+  # The name of the new field containing proxy list (optional)
+  config :target_proxy_list, :validate => :string, :required => false, :default => "forwarded_proxy_list"
   
   public
   def register    
@@ -47,8 +53,8 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       forwarded = event.get(@source)
       client_ip, proxies = analyse(forwarded)
       if client_ip
-        event.set("client_ip", client_ip)
-        event.set("proxies", proxies)
+        event.set(@target_client_ip, client_ip)
+        event.set(@target_proxy_list, proxies)
         filter_matched(event)     
       end
     rescue Exception => e
