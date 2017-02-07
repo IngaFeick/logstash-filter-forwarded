@@ -54,9 +54,12 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       client_ip, proxies = analyse(forwarded)
       if client_ip
         event.set(@target_client_ip, client_ip)
-        event.set(@target_proxy_list, proxies)
-        filter_matched(event)     
       end
+      if proxies
+        event.set(@target_proxy_list, proxies)
+      end
+      filter_matched(event)     
+      
     rescue Exception => e
       @logger.error("Unknown error while looking up GeoIP data", :exception => e, :field => @source, :event => event)
       # Dont' swallow this, bubble up for unknown issue
