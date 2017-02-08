@@ -3,9 +3,6 @@ require "logstash/filters/base"
 require "logstash/namespace"
 require "ipaddr"
 
-java_import "java.net.InetAddress"
-
-
 # The forwarded filter extracts the client ip from a list of ip adresses. The client ip might be at any position in the list, since not every x-forwarded-for header comes in the correct ordering.
 # It adds two new fields to the event:
 #  - forwarded_client_ip : string
@@ -13,13 +10,12 @@ java_import "java.net.InetAddress"
 
 class LogStash::Filters::Forwarded < LogStash::Filters::Base
   config_name "forwarded"
-
   
   # The field containing the x-forwarded-for string
   config :source, :validate => :string, :required => true
 
   # list of ip patterns that private ips start with. 
-  config :private_ip_prefixes, :validate => :array, :required => false, :default => ["10.0.0.0/8", "192.168.0.0/16" ,"172.16.0.0/12"]
+  config :private_ipv4_prefixes, :validate => :array, :required => false, :default => ["10.0.0.0/8", "192.168.0.0/16" ,"172.16.0.0/12"]
 
   # Private IP Addresses have the following ranges:
   # 10.0.0.0    - 10.255.255.255
@@ -34,7 +30,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   
   public
   def register    
-    @private_ips = @private_ip_prefixes.collect do | adress |
+    @private_ipv4_ranges = @private_ipv4_prefixes.collect do | adress |
       begin
         IPAddr.new(adress)
       rescue ArgumentError => e
@@ -42,7 +38,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
         raise e
        end
     end
-    @private_ips.compact!
+    @private_ipv4_ranges.compact!
   end # def register
 
   public
@@ -95,24 +91,35 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
 
   def get_client_ip(ip_array)
     ip_array.each do | ip |
-      if !is_private(ip)
+      if ip.ipv6?
+        is_private = is_private_ipv6(ip)
+      else
+        is_private = is_private_ipv4(ip)
+      end
+      if !is_private
         return ip
       end # if
     end # each
     nil
   end # get_client_ip
 
-  def is_private(ip)
+  
+  def is_private_ipv6(ip)
+    ip.start_with?("fd") || ip.start_with?("fc")
+  end # is_private_ipv6
+
+
+  def is_private_ipv4(ip)
     begin
       ipo = IPAddr.new(ip)
-      @private_ips.each do | private_ip |
-        if private_ip.include?(ipo)
+      @private_ipv4_ranges.each do | ip_range |
+        if ip_range.include?(ipo)
           return true
         end
       end # each
       false
     rescue => e
-      @logger.debug("Couldnt check if ip is private.", :input_data => ip, :exception => e)
+      @logger.debug("Couldn't check if ip is private.", :input_data => ip, :exception => e)
     end # begin
   end # is_private
 
