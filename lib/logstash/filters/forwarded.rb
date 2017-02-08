@@ -51,12 +51,9 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       return unless forwarded and !forwarded.empty?
 
       client_ip, proxies = analyse(forwarded)
-      if client_ip
-        event.set(@target_client_ip, client_ip)
-      end
-      if proxies
-        event.set(@target_proxy_list, proxies)
-      end
+      
+      event.set(@target_client_ip, client_ip) if client_ip
+      event.set(@target_proxy_list, proxies) if proxies
       filter_matched(event)     
       
     rescue Exception => e
@@ -66,39 +63,23 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   end # def filter
 
   def analyse(ip)
-    if ip.nil?
-      return nil, nil
-    end
-
-    if ip.is_a? Array
-      ip_list = ip
-    else
-      ip_list = ip.downcase.split(",")  
-    end
+    return nil, nil if ip.nil?
+    
+    ip_list = ip.is_a? Array ? ip : ip.downcase.split(",")  
     ip_list = ip_list.map { |x| x.strip }.reject { |x| ["-", "unknown"].include? x }
 
     client_ip = get_client_ip(ip_list)
-
-    if ip_list.nil?
-      proxies = [] 
-    else 
-      proxies = ip_list - [client_ip]
-    end
-
+    
+    proxies = ip_list.nil? ? [] : ip_list - [client_ip]
+    
     return client_ip, proxies
 
   end # def analyse
 
   def get_client_ip(ip_array)
     ip_array.each do | ip |
-      if ip.ipv6?
-        is_private = is_private_ipv6(ip)
-      else
-        is_private = is_private_ipv4(ip)
-      end
-      if !is_private
-        return ip
-      end # if
+      is_private = ip.ipv6? ? is_private_ipv6(ip) : is_private_ipv4(ip)      
+      return ip if !is_private      
     end # each
     nil
   end # get_client_ip
@@ -113,9 +94,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
     begin
       ipo = IPAddr.new(ip)
       @private_ipv4_ranges.each do | ip_range |
-        if ip_range.include?(ipo)
-          return true
-        end
+        return true if ip_range.include?(ipo)
       end # each
       false
     rescue => e
