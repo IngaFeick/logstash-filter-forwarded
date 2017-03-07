@@ -1,7 +1,8 @@
 # encoding: utf-8
 require "logstash/filters/base"
 require "logstash/namespace"
-require "ipaddr"
+require "ipaddr" # needed for network range check
+require "ipaddress" # needed for validity check
 
 # The forwarded filter extracts the client ip from a list of ip adresses. The client ip might be at any position in the list, since not every x-forwarded-for header comes in the correct ordering.
 # It adds two new fields to the event:
@@ -66,7 +67,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
     return nil, nil if ip.nil?
     
     ip_list = ip.is_a? Array ? ip : ip.downcase.split(",")  
-    ip_list = ip_list.map { |x| x.strip }.reject { |x| ["-", "unknown"].include? x }
+    ip_list = ip_list.map { |x| x.strip }.reject { |x| ["-", "unknown"].include? x}
 
     client_ip = get_client_ip(ip_list)
     
@@ -79,7 +80,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   def get_client_ip(ip_array)
     ip_array.each do | ip |
       is_private = ip.ipv6? ? is_private_ipv6(ip) : is_private_ipv4(ip)      
-      return ip if !is_private      
+      return ip if !is_private and IPAddress.valid? ip   
     end # each
     nil
   end # get_client_ip

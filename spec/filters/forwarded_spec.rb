@@ -180,5 +180,13 @@ describe LogStash::Filters::Forwarded do
     end # it
   end # context
 
+  context "19) unresolved host names" do
+    let(:event) { LogStash::Event.new(:message => "192.168.4.61,wmt00091.kan,wmt00091.kan, 64.134.227.116") }
+    it "should drop the unresolved hosts" do
+      expect(event.get("forwarded_client_ip")).to eq("64.134.227.116"), "Event: #{event.inspect}"
+      expect(event.get("forwarded_proxy_list")).to eq(["192.168.4.61","wmt00091.kan","wmt00091.kan"]), "Event: #{event.inspect}"
+    end # it
+  end # context
+
 
 end
