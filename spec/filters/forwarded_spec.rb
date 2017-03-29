@@ -17,6 +17,7 @@ describe LogStash::Filters::Forwarded do
   #172.16.0.0  - 172.31.255.255
   #192.168.0.0 - 192.168.255.255 
 
+
   context "1) multiple client ips" do
 
     let(:event) { LogStash::Event.new(:message => "123.45.67.89,61.160.232.222") }
@@ -185,6 +186,14 @@ describe LogStash::Filters::Forwarded do
     it "should drop the unresolved hosts" do
       expect(event.get("forwarded_client_ip")).to eq("64.134.227.116"), "Event: #{event.inspect}"
       expect(event.get("forwarded_proxy_list")).to eq(["192.168.4.61","wmt00091.kan","wmt00091.kan"]), "Event: #{event.inspect}"
+    end # it
+  end # context
+
+  context "20) ip field is an array" do
+    let(:event) { LogStash::Event.new(:message => ["51.174.213.194","10.1.2.100","10.1.2.83"]) }
+    it "should take the first client ip" do
+      expect(event.get("forwarded_client_ip")).to eq("51.174.213.194")
+      expect(event.get("forwarded_proxy_list")).to eq(["10.1.2.100","10.1.2.83"])
     end # it
   end # context
 
