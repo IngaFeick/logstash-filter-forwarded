@@ -65,9 +65,6 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
 
   def analyse(ip)
     return nil, nil if ip.nil?
-    
-    begin
-    
       ip_list = ip.is_a?(Array) ? ip : ip.downcase.split(",")  
       ip_list = ip_list.map { |x| x.strip }.reject { |x| ["-", "unknown"].include? x}
 
@@ -76,25 +73,22 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       proxies = ip_list.nil? ? [] : ip_list - [client_ip]
       
       return client_ip, proxies
-    rescue Exception => e
-      @logger.debug("analyse() failed", :exception => e, :field => @source, :ip => ip, :backtrace => e.backtrace)
-      # raise e
-    end # begin
-
   end # def analyse
 
   def get_client_ip(ip_array)
-    begin
       ip_array.each do | ip |
-        ipo = IPAddr.new(ip)
-        is_private = ipo.ipv6? ? is_private_ipv6(ip) : is_private_ipv4(ipo)      
-        return ip if !is_private and IPAddress.valid? ip   
+        begin
+          ipo = IPAddr.new(ip)
+        rescue => e
+          # not a valid ip, moving on!
+          @logger.debug("get_client_ip() failed", :exception => e, :field => @source, :ip_array => ip_array)
+          next
+        end
+
+        is_private = ipo.ipv6? ? is_private_ipv6(ip) : is_private_ipv4(ipo)
+        return ip if !is_private and IPAddress.valid? ip
       end # each
       nil
-    rescue Exception => e
-      @logger.debug("get_client_ip() failed", :exception => e, :field => @source, :ip_array => ip_array)
-      # raise e
-    end # begin
   end # get_client_ip
 
   
