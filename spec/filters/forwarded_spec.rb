@@ -151,7 +151,7 @@ describe LogStash::Filters::Forwarded do
 
     let(:event) { LogStash::Event.new(:message => "fd8e:3ea6:dd4b:e20b:xxxx:xxxx:xxxx:xxxx") }
     it "should have an empty client ip" do
-      expect(event.get("forwarded_client_ip")).to eq(""), "Event: #{event.inspect}"
+      expect(event.get("forwarded_client_ip")).to eq(nil), "Event: #{event.inspect}"
       expect(event.get("forwarded_proxy_list")).to eq(["fd8e:3ea6:dd4b:e20b:xxxx:xxxx:xxxx:xxxx"]), "Event: #{event.inspect}"
     end # it
   end # context
@@ -166,8 +166,7 @@ describe LogStash::Filters::Forwarded do
   end # context
 
   context "17) override existing fields in event" do
-
-    let(:event) { LogStash::Event.new(:message => "fc8e:3ea6:dd4b:e20b:xxxx:xxxx:xxxx:xxxx,127.0.0.2", :forwarded_client_ip => "127.0.0.1") }
+    let(:event) { LogStash::Event.new(:message => "2405:204:828e:fa5a::e64:38a5, 127.0.0.2", :forwarded_client_ip => "127.0.0.1") }
     it "should ignore the old value for the forwarded_client_ip" do
       expect(event.get("forwarded_client_ip")).to eq("2405:204:828e:fa5a::e64:38a5"), "Event: #{event.inspect}"
       expect(event.get("forwarded_proxy_list")).to eq(["127.0.0.2"]), "Event: #{event.inspect}"
