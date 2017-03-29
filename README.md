@@ -1,5 +1,6 @@
 # Logstash Plugin
 
+[![Travis Build Status](https://travis-ci.org/IngaFeick/logstash-filter-forwarded.svg)](https://travis-ci.org/IngaFeick/logstash-filter-forwarded)
 
 This is a plugin for [Logstash](https://github.com/elastic/logstash).
 
