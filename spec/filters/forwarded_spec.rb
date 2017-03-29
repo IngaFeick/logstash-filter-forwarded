@@ -63,6 +63,15 @@ describe LogStash::Filters::Forwarded do
       end # it
     end # context
 
+    context "ip field is an array" do
+
+      let(:event) { LogStash::Event.new(:message => ["51.174.213.194","10.1.2.100","10.1.2.83"]) }
+      it "should take the first client ip" do
+        expect(event.get("forwarded_client_ip")).to eq("51.174.213.194")
+        expect(event.get("forwarded_proxy_list")).to eq(["10.1.2.100","10.1.2.83"])
+      end # it
+    end # context
+
     context "single proxy ip" do
 
       let(:event) { LogStash::Event.new(:message => "10.1.2.162") }
