@@ -196,5 +196,4 @@ describe LogStash::Filters::Forwarded do
     end # it
   end # context
 
-
 end
