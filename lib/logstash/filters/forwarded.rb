@@ -78,6 +78,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   def get_client_ip(ip_array)
       ip_array.each do | ip |
         begin
+          ip = remove_port_number(ip)
           ipo = IPAddr.new(ip)
         rescue => e
           # not a valid ip, moving on!
@@ -91,6 +92,9 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       nil
   end # get_client_ip
 
+  def remove_port_number(ip)
+    return ip.split(":")[0]
+  end
   
   def is_private_ipv6(ip)
     ip.start_with?("fd") || ip.start_with?("fc")
