@@ -65,29 +65,47 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
 
   def analyse(ip)
     return nil, nil if ip.nil?
+      # convert the x-forwarded-for string into an array of its comma separated value, if it isn't already.
       ip_list = ip.is_a?(Array) ? ip : ip.downcase.split(",")  
+
+      # remove some well-known invalid values
       ip_list = ip_list.map { |x| x.strip }.reject { |x| ["-", "unknown"].include? x}
 
+      # the IpAddr library cannot handle ips with port numbers
+      ip_list = ip_list.map { |x| remove_port_number(x) }
+
+      puts "Incoming ip: #{ip} => #{ip_list}" # TODO remove
+
+      # get the first public ip in the list
       client_ip = get_client_ip(ip_list)
+      puts "Client ip found: #{client_ip}"  # TODO remove
       
+      # remove the public / client ip from the list and use the remainder as the list of proxies involved.
       proxies = ip_list.nil? ? [] : ip_list - [client_ip]
+      puts "proxies: #{proxies}"  # TODO remove
       
       return client_ip, proxies
   end # def analyse
 
   def get_client_ip(ip_array)
       ip_array.each do | ip |
-        begin
-          ip = remove_port_number(ip)
+        begin          
+          next if !IPAddress.valid? ip
+
+          # test if the ip is v6
           ipo = IPAddr.new(ip)
+          is_ipv6 = ipo.ipv6?
+          puts "IP #{ipo.inspect} is ipv6: #{is_ipv6}" # TODO remove
+            
+          is_private = is_ipv6 ? is_private_ipv6(ip) : is_private_ipv4(ipo)
+          puts "IP #{ip} is private: #{is_private}" # TODO remove
+
+          return ip if !is_private 
         rescue => e
-          # not a valid ip, moving on!
-          @logger.debug("get_client_ip() failed", :exception => e, :field => @source, :ip_array => ip_array)
+          # not a valid ip, moving on.
+          # @logger.debug("get_client_ip() failed", :exception => e, :field => @source, :ip_array => ip_array)
           next
         end
-
-        is_private = ipo.ipv6? ? is_private_ipv6(ip) : is_private_ipv4(ipo)
-        return ip if !is_private and IPAddress.valid? ip
       end # each
       nil
   end # get_client_ip
