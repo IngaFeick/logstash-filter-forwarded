@@ -93,7 +93,8 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   end # get_client_ip
 
   def remove_port_number(ip)
-    return ip.split(":")[0]
+    tokens = ip.split(":")
+    if tokens.size <=2 then tokens[0] else ip end
   end
   
   def is_private_ipv6(ip)
