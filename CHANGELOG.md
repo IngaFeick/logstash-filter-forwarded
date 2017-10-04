@@ -1,3 +1,7 @@
+### v1.0.4
+
+Remove port numbers from ip addresses
+
 
 ### v1.0.1
 
