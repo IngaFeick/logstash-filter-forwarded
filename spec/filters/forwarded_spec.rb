@@ -204,4 +204,13 @@ describe LogStash::Filters::Forwarded do
     end # it
   end # context
 
+  context "22) multiple client ips with port number" do
+    let(:event) { LogStash::Event.new(:message => "123.45.67.89:8080,61.160.232.222:123") }
+    it "should remove the port numbers" do
+      expect(event.get("forwarded_client_ip")).to eq("123.45.67.89"), "Got #{event.inspect}"
+      expect(event.get("forwarded_proxy_list")).to eq(["61.160.232.222"]), "Got #{event.inspect}"
+
+    end # it
+  end # context
+
 end
