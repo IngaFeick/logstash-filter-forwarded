@@ -11,26 +11,26 @@ require "ipaddress" # needed for validity check
 
 class LogStash::Filters::Forwarded < LogStash::Filters::Base
   config_name "forwarded"
-  
+
   # The field containing the x-forwarded-for string
   config :source, :validate => :string, :required => true
 
-  # list of ip patterns that private ips start with. 
+  # list of ip patterns that private ips start with.
   config :private_ipv4_prefixes, :validate => :array, :required => false, :default => ["10.0.0.0/8", "192.168.0.0/16" ,"172.16.0.0/12"]
 
   # Private IP Addresses have the following ranges:
   # 10.0.0.0    - 10.255.255.255
   # 172.16.0.0  - 172.31.255.255
-  # 192.168.0.0 - 192.168.255.255 
+  # 192.168.0.0 - 192.168.255.255
 
   # The name of the new field containing client ip (optional)
   config :target_client_ip, :validate => :string, :required => false, :default => "forwarded_client_ip"
 
   # The name of the new field containing proxy list (optional)
   config :target_proxy_list, :validate => :string, :required => false, :default => "forwarded_proxy_list"
-  
+
   public
-  def register    
+  def register
     @private_ipv4_ranges = @private_ipv4_prefixes.collect do | adress |
       begin
         IPAddr.new(adress)
@@ -52,11 +52,11 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
       return unless forwarded and !forwarded.empty?
 
       client_ip, proxies = analyse(forwarded)
-      
+
       event.set(@target_client_ip, client_ip) if client_ip
       event.set(@target_proxy_list, proxies) if proxies
-      filter_matched(event)     
-      
+      filter_matched(event)
+
     rescue Exception => e
       @logger.debug("Unknown error while looking up GeoIP data", :exception => e, :field => @source, :event => event)
       # raise e
@@ -66,7 +66,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
   def analyse(ip)
     return nil, nil if ip.nil?
       # convert the x-forwarded-for string into an array of its comma separated value, if it isn't already.
-      ip_list = ip.is_a?(Array) ? ip : ip.downcase.split(",")  
+      ip_list = ip.is_a?(Array) ? ip : ip.downcase.split(",")
 
       # remove some well-known invalid values
       ip_list = ip_list.map { |x| x.strip }.reject { |x| ["-", "unknown"].include? x}
@@ -76,20 +76,20 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
 
       # get the first public ip in the list
       client_ip = get_client_ip(ip_list)
-      
+
       # remove the public / client ip from the list and use the remainder as the list of proxies involved.
-      proxies = ip_list.nil? ? [] : ip_list - [client_ip]
-      
+      proxies = ip_list.nil? ? nil : ip_list - [client_ip]
+
       return client_ip, proxies
   end # def analyse
 
   def get_client_ip(ip_array)
       ip_array.each do | ip |
-        begin          
+        begin
           next if !IPAddress.valid? ip
 
-          ipo = IPAddr.new(ip)            
-          is_private = ipo.ipv6? ? is_private_ipv6(ip) : is_private_ipv4(ipo)         
+          ipo = IPAddr.new(ip)
+          is_private = ipo.ipv6? ? is_private_ipv6(ip) : is_private_ipv4(ipo)
           return ip if !is_private
         rescue => e
           # not a valid ip, moving on.
@@ -104,7 +104,7 @@ class LogStash::Filters::Forwarded < LogStash::Filters::Base
     tokens = ip.split(":")
     if tokens.size <=2 then tokens[0] else ip end
   end
-  
+
   def is_private_ipv6(ip)
     ip.start_with?("fd") || ip.start_with?("fc")
   end # is_private_ipv6
