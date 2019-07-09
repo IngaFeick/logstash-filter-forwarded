@@ -6,16 +6,16 @@ require "logstash/timestamp"
 describe LogStash::Filters::Forwarded do
 
   let(:plugin) { LogStash::Filters::Forwarded.new("source" => "message") }
-  
+
   before do
     plugin.register
     plugin.filter(event)
   end
-  
+
   # Private IP Addresses have the following ranges:
   #10.0.0.0    - 10.255.255.255
   #172.16.0.0  - 172.31.255.255
-  #192.168.0.0 - 192.168.255.255 
+  #192.168.0.0 - 192.168.255.255
 
 
   context "1) multiple client ips" do
